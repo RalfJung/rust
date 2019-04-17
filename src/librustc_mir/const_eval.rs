@@ -23,7 +23,7 @@ use crate::interpret::{self,
     PlaceTy, MPlaceTy, OpTy, ImmTy, Immediate, Scalar, Pointer,
     RawConst, ConstValue, Machine,
     InterpResult, InterpErrorInfo, GlobalId, InterpCx, StackPopCleanup,
-    Allocation, AllocId, MemoryKind, Memory,
+    Allocation, AllocId, MemoryKind, Memory, StackPopInfo,
     snapshot, RefTracking, intern_const_alloc_recursive,
 };
 
@@ -328,6 +328,7 @@ impl<'mir, 'tcx> interpret::Machine<'mir, 'tcx> for CompileTimeInterpreter<'mir,
         args: &[OpTy<'tcx>],
         dest: Option<PlaceTy<'tcx>>,
         ret: Option<mir::BasicBlock>,
+        _unwind: Option<mir::BasicBlock> // unwinding is not supported in consts
     ) -> InterpResult<'tcx, Option<&'mir mir::Body<'tcx>>> {
         debug!("eval_fn_call: {:?}", instance);
         // Only check non-glue functions
@@ -376,7 +377,7 @@ impl<'mir, 'tcx> interpret::Machine<'mir, 'tcx> for CompileTimeInterpreter<'mir,
         ecx: &mut InterpCx<'mir, 'tcx, Self>,
         instance: ty::Instance<'tcx>,
         args: &[OpTy<'tcx>],
-        dest: PlaceTy<'tcx>,
+        dest: Option<PlaceTy<'tcx>>,
     ) -> InterpResult<'tcx> {
         if ecx.emulate_intrinsic(instance, args, dest)? {
             return Ok(());
@@ -474,8 +475,10 @@ impl<'mir, 'tcx> interpret::Machine<'mir, 'tcx> for CompileTimeInterpreter<'mir,
 
     /// Called immediately before a stack frame gets popped.
     #[inline(always)]
-    fn stack_pop(_ecx: &mut InterpCx<'mir, 'tcx, Self>, _extra: ()) -> InterpResult<'tcx> {
-        Ok(())
+    fn stack_pop(
+        _ecx: &mut InterpCx<'mir, 'tcx, Self>, _extra: ()) -> InterpResult<'tcx, StackPopInfo> {
+        // Const-eval mode does not support unwinding from panics
+        Ok(StackPopInfo::Normal)
     }
 }
 

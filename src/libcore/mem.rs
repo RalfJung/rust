@@ -836,7 +836,7 @@ pub fn discriminant<T>(v: &T) -> Discriminant<T> {
 /// ```
 ///
 /// [`mem::zeroed`]: fn.zeroed.html
-/// [`MaybeUninit<T>`]: struct.MaybeUninit.html
+/// [`MaybeUninit<T>`]: union.MaybeUninit.html
 #[stable(feature = "manually_drop", since = "1.20.0")]
 #[lang = "manually_drop"]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

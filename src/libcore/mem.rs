@@ -494,7 +494,7 @@ pub const fn needs_drop<T>() -> bool {
 ///
 /// *Incorrect* usage of this function: initializing a reference with zero.
 ///
-/// ```
+/// ```no_run
 /// use std::mem;
 ///
 /// let _x: &i32 = unsafe { mem::zeroed() }; // Undefined behavior!
@@ -987,7 +987,7 @@ impl<T: ?Sized> DerefMut for ManuallyDrop<T> {
 ///
 /// On top of that, remember that most types have additional invariants beyond merely
 /// being considered initialized at the type level. For example, a `1`-initialized [`Vec<T>`]
-/// is considered initialized because the only requirement the compiler knows about
+/// is considered initialized because the only requirement the compiler knows about it
 /// is that the data pointer must be non-null. Creating such a `Vec<T>` does not cause
 /// *immediate* undefined behavior, but will cause undefined behavior with most
 /// safe operations (including dropping it).
@@ -1025,8 +1025,8 @@ impl<T: ?Sized> DerefMut for ManuallyDrop<T> {
 ///
 /// let data = unsafe {
 ///     // Create an uninitialized array of `MaybeUninit`. The `assume_init` is
-///     // safe because we type we are claiming to have initialized here is a
-///     // bunch of `MaybeUninit`, which do not require initialization.
+///     // safe because the type we are claiming to have initialized here is a
+///     // bunch of `MaybeUninit`s, which do not require initialization.
 ///     let mut data: [MaybeUninit<Vec<u32>>; 1000] = MaybeUninit::uninit().assume_init();
 ///
 ///     // Dropping a `MaybeUninit` does nothing, so if there is a panic during this loop,
@@ -1052,9 +1052,9 @@ impl<T: ?Sized> DerefMut for ManuallyDrop<T> {
 ///
 /// unsafe {
 ///     // Create an uninitialized array of `MaybeUninit`. The `assume_init` is
-///     // safe because we type we are claiming to have initialized here is a
-///     // bunch of `MaybeUninit`, which do not require initialization.
-///     let mut data: [MaybeUninit<String>; 500] = MaybeUninit::uninit().assume_init();
+///     // safe because the type we are claiming to have initialized here is a
+///     // bunch of `MaybeUninit`s, which do not require initialization.
+///     let mut data: [MaybeUninit<String>; 1000] = MaybeUninit::uninit().assume_init();
 ///     // Count the number of elements we have assigned.
 ///     let mut data_len: usize = 0;
 ///

@@ -513,7 +513,7 @@ pub unsafe fn zeroed<T>() -> T {
 /// correctly: [the Rust compiler assumes][inv] that values are properly initialized.
 /// As a consequence, calling `mem::uninitialized::<bool>()` causes immediate
 /// undefined behavior for returning a `bool` that is not definitely either `true`
-/// or `false`. Worse, truly uninitialized memory like the une returned here
+/// or `false`. Worse, truly uninitialized memory like what gets returned here
 /// is special in that the compiler knows that it does not have a fixed value.
 /// This makes it undefined behavior to have uninitialized data in a variable even
 /// if that variable has an integer type.

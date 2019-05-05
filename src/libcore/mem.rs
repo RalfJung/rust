@@ -1036,7 +1036,7 @@ impl<T: ?Sized> DerefMut for ManuallyDrop<T> {
 ///
 /// unsafe fn make_vec(out: *mut Vec<i32>) {
 ///     // `write` does not drop the old contents, which is important.
-///     out.write(vec![1,2,3]);
+///     out.write(vec![1, 2, 3]);
 /// }
 ///
 /// let mut v: MaybeUninit<Vec<i32>> = MaybeUninit::uninit();
@@ -1044,7 +1044,7 @@ impl<T: ?Sized> DerefMut for ManuallyDrop<T> {
 /// // Now we know `v` is initialized! This also makes sure the vector gets
 /// // properly dropped.
 /// let v = unsafe { v.assume_init() };
-/// assert_eq!(&v, &[1,2,3]);
+/// assert_eq!(&v, &[1, 2, 3]);
 /// ```
 ///
 /// ## Initializing an array element-by-element

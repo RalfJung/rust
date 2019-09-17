@@ -157,6 +157,11 @@ pub struct Session {
     /// Metadata about the panic handlers for the current crate being compiled.
     pub has_panic_handler: Once<bool>,
 
+    /// Whether or not to force the panic strategy for this
+    /// crate to be PanicStrategy::Abort. Only used
+    /// for 'libpanic_abort'
+    pub force_panic_abort: Once<bool>,
+
     /// Cap lint level specified by a driver specifically.
     pub driver_lint_caps: FxHashMap<lint::LintId, lint::Level>,
 
@@ -616,6 +621,10 @@ impl Session {
     /// Returns the panic strategy for this compile session. If the user explicitly selected one
     /// using '-C panic', use that, otherwise use the panic strategy defined by the target.
     pub fn panic_strategy(&self) -> PanicStrategy {
+        if *self.force_panic_abort.get() {
+            return PanicStrategy::Abort
+        }
+
         self.opts
             .cg
             .panic
@@ -1238,6 +1247,7 @@ fn build_session_(
         jobserver: jobserver::client(),
         has_global_allocator: Once::new(),
         has_panic_handler: Once::new(),
+        force_panic_abort: Once::new(),
         driver_lint_caps,
         trait_methods_not_found: Lock::new(Default::default()),
         confused_type_with_std_module: Lock::new(Default::default()),

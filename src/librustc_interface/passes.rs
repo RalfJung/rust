@@ -39,7 +39,7 @@ use syntax::ext::base::{NamedSyntaxExtension, ExtCtxt};
 use syntax::mut_visit::MutVisitor;
 use syntax::parse::{self, PResult};
 use syntax::util::node_count::NodeCounter;
-use syntax::symbol::Symbol;
+use syntax::symbol::{sym, Symbol};
 use syntax_pos::FileName;
 use syntax_ext;
 
@@ -243,6 +243,11 @@ pub fn register_plugins<'a>(
 
     let crate_types = util::collect_crate_types(sess, &krate.attrs);
     sess.crate_types.set(crate_types);
+
+    let force_panic_abort = krate.attrs.iter().any(|attr| {
+        attr.check_name(sym::rustc_panic_abort_runtime)
+    });
+    sess.force_panic_abort.set(force_panic_abort);
 
     let disambiguator = util::compute_crate_disambiguator(sess);
     sess.crate_disambiguator.set(disambiguator);

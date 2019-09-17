@@ -17,6 +17,7 @@
 #![feature(panic_runtime)]
 #![feature(staged_api)]
 #![feature(rustc_attrs)]
+#![cfg_attr(not(bootstrap), rustc_panic_abort_runtime)]
 
 // Rust's "try" function, but if we're aborting on panics we just call the
 // function as there's nothing else we need to do here.

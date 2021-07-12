@@ -165,6 +165,7 @@ impl<'mir, 'tcx, M: Machine<'mir, 'tcx>> Memory<'mir, 'tcx, M> {
         &self,
         ptr: Pointer<AllocId>,
     ) -> InterpResult<'tcx, Pointer<M::PointerTag>> {
+        // We know `offset` is relative to the allocation, so we can use `into_parts`.
         let (alloc_id, offset) = ptr.into_parts();
         // We need to handle `extern static`.
         let alloc_id = match self.tcx.get_global_alloc(alloc_id) {
@@ -448,7 +449,7 @@ impl<'mir, 'tcx, M: Machine<'mir, 'tcx>> Memory<'mir, 'tcx, M> {
                 // we want the error to be about the bounds.
                 if let Some(align) = align {
                     if M::force_int_for_alignment_check(&self.extra) {
-                        let addr = Scalar::from(ptr)
+                        let addr = Scalar::from_pointer(ptr, &self.tcx)
                             .to_machine_usize(&self.tcx)
                             .expect("ptr-to-int cast for align check should never fail");
                         check_offset_align(addr, align)?;
@@ -1127,7 +1128,7 @@ impl<'mir, 'tcx, M: Machine<'mir, 'tcx>> Memory<'mir, 'tcx, M> {
 /// Machine pointer introspection.
 impl<'mir, 'tcx, M: Machine<'mir, 'tcx>> Memory<'mir, 'tcx, M> {
     pub fn scalar_to_ptr(&self, scalar: Scalar<M::PointerTag>) -> Pointer<M::PointerTag> {
-        match scalar.to_bits_or_ptr(self.pointer_size(), &self.tcx) {
+        match scalar.to_bits_or_ptr(self.pointer_size()) {
             Err(ptr) => ptr,
             Ok(bits) => {
                 let addr = u64::try_from(bits).unwrap();

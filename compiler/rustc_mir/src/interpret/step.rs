@@ -164,7 +164,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
             ThreadLocalRef(did) => {
                 let id = M::thread_local_static_alloc_id(self, did)?;
                 let val = self.global_base_pointer(id.into())?;
-                self.write_scalar(val, &dest)?;
+                self.write_scalar(Scalar::from_pointer(val, &*self.tcx), &dest)?;
             }
 
             Use(ref operand) => {
@@ -264,7 +264,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
             AddressOf(_, place) | Ref(_, _, place) => {
                 let src = self.eval_place(place)?;
                 let place = self.force_allocation(&src)?;
-                self.write_immediate(place.to_ref(), &dest)?;
+                self.write_immediate(place.to_ref(&*self.tcx), &dest)?;
             }
 
             NullaryOp(mir::NullOp::Box, _) => {

@@ -87,10 +87,10 @@ impl<T: HasDataLayout> PointerArithmetic for T {}
 /// mostly opaque; the `Machine` trait extends it with some more operations that also have access to
 /// some global state.
 pub trait Provenance: Copy {
-    /// Says whether the `offset` field of `Pointer` is the actual physical address.
+    /// Says whether the `offset` field of `Pointer`s with this provenance is the actual physical address.
     /// If `true, ptr-to-int casts work by simply discarding the provenance.
     /// If `false`, ptr-to-int casts are not supported.
-    const OFFSET_IS_ADDR: bool;
+    fn offset_is_addr(self) -> bool;
 
     /// Determines how a pointer should be printed.
     fn fmt(ptr: &Pointer<Self>, f: &mut fmt::Formatter<'_>) -> fmt::Result
@@ -111,7 +111,10 @@ pub type DefaultTag = Option<AllocId>;
 impl Provenance for AllocId {
     // With the `AllocId` as provenance, the `offset` is interpreted *relative to the allocation*,
     // so ptr-to-int casts are not possible (since we do not know the global physical offset).
-    const OFFSET_IS_ADDR: bool = false;
+    #[inline(always)]
+    fn offset_is_addr(self) -> bool {
+        false
+    }
 
     fn fmt(ptr: &Pointer<Self>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Forward `alternate` flag to `alloc_id` printing.
@@ -133,9 +136,13 @@ impl Provenance for AllocId {
 }
 
 impl Provenance for DefaultTag {
-    // With the `AllocId` as provenance, the `offset` is interpreted *relative to the allocation*,
-    // so ptr-to-int casts are not possible (since we do not know the global physical offset).
-    const OFFSET_IS_ADDR: bool = false;
+    // With the `Option<AllocId>` as provenance, the `offset` is interpreted *relative to the
+    // allocation*, so ptr-to-int casts are not possible (since we do not know the global physical
+    // offset) -- except if the provenance is `None`, which indicates regular integers.
+    #[inline(always)]
+    fn offset_is_addr(self) -> bool {
+        self.is_none()
+    }
 
     fn fmt(ptr: &Pointer<Self>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match ptr.provenance {

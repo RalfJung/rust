@@ -12,7 +12,8 @@ use rustc_target::abi::{self, LayoutOf as _};
 use rustc_target::spec::abi::Abi;
 
 use super::{
-    FnVal, ImmTy, InterpCx, InterpResult, Machine, OpTy, PlaceTy, StackPopCleanup, StackPopUnwind,
+    FnVal, ImmTy, Immediate, InterpCx, InterpResult, Machine, OpTy, PlaceTy, StackPopCleanup,
+    StackPopUnwind,
 };
 
 impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
@@ -467,8 +468,10 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                 let receiver_ptr_ty = self.tcx.mk_mut_ptr(receiver_place.layout.ty);
                 let this_receiver_ptr = self.layout_of(receiver_ptr_ty)?.field(self, 0)?;
                 // Adjust receiver argument.
-                args[0] =
-                    OpTy::from(ImmTy::from_immediate(receiver_place.ptr.into(), this_receiver_ptr));
+                args[0] = OpTy::from(ImmTy::from_immediate(
+                    Immediate::from_pointer(receiver_place.ptr, self),
+                    this_receiver_ptr,
+                ));
                 trace!("Patched self operand to {:#?}", args[0]);
                 // recurse with concrete function
                 self.eval_fn_call(fn_val, caller_abi, &args, ret, unwind)
@@ -498,7 +501,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
         };
 
         let arg = ImmTy::from_immediate(
-            place.to_ref(),
+            place.to_ref(self),
             self.layout_of(self.tcx.mk_mut_ptr(place.layout.ty))?,
         );
 

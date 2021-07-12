@@ -206,10 +206,12 @@ impl<Tag> MemPlace<Tag> {
     /// Turn a mplace into a (thin or wide) pointer, as a reference, pointing to the same space.
     /// This is the inverse of `ref_to_mplace`.
     #[inline(always)]
-    pub fn to_ref(self) -> Immediate<Tag> {
+    pub fn to_ref(self, cx: &impl HasDataLayout) -> Immediate<Tag> {
         match self.meta {
-            MemPlaceMeta::None => Immediate::Scalar(self.ptr.into()),
-            MemPlaceMeta::Meta(meta) => Immediate::ScalarPair(self.ptr.into(), meta.into()),
+            MemPlaceMeta::None => Immediate::from_pointer(self.ptr, cx),
+            MemPlaceMeta::Meta(meta) => {
+                Immediate::ScalarPair(ScalarMaybeUninit::from_pointer(self.ptr, cx), meta.into())
+            }
             MemPlaceMeta::Poison => bug!(
                 "MPlaceTy::dangling may never be used to produce a \
                 place that will have the address of its pointee taken"
@@ -751,7 +753,7 @@ where
             // This is a very common path, avoid some checks in release mode
             assert!(!dest.layout.is_unsized(), "Cannot write unsized data");
             match src {
-                Immediate::Scalar(ScalarMaybeUninit::Scalar(Scalar::Ptr(_))) => assert_eq!(
+                Immediate::Scalar(ScalarMaybeUninit::Scalar(Scalar::Ptr(..))) => assert_eq!(
                     self.pointer_size(),
                     dest.layout.size,
                     "Size mismatch when writing pointer"

@@ -283,6 +283,8 @@ pub trait Machine<'mir, 'tcx>: Sized {
     /// this will return an unusable tag (i.e., accesses will be UB)!
     ///
     /// Called on the id returned by `thread_local_static_alloc_id` and `extern_static_alloc_id`, if needed.
+    ///
+    /// `offset` is relative inside the allocation.
     fn tag_global_base_pointer(
         memory_extra: &Self::MemoryExtra,
         id: AllocId,
@@ -482,6 +484,7 @@ pub macro compile_time_machine(<$mir: lifetime, $tcx: lifetime>) {
 
     #[inline(always)]
     fn ptr_get_alloc(_mem: &Memory<$mir, $tcx, Self>, ptr: Pointer) -> (Option<AllocId>, Size) {
+        // We know `offset` is relative to the allocation, so we can use `into_parts`.
         ptr.into_parts()
     }
 }

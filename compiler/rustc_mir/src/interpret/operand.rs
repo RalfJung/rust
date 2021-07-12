@@ -9,7 +9,7 @@ use rustc_hir::def::Namespace;
 use rustc_macros::HashStable;
 use rustc_middle::ty::layout::{PrimitiveExt, TyAndLayout};
 use rustc_middle::ty::print::{FmtPrinter, PrettyPrinter, Printer};
-use rustc_middle::ty::{ConstInt, Ty, TyCtxt};
+use rustc_middle::ty::{ConstInt, Ty};
 use rustc_middle::{mir, ty};
 use rustc_target::abi::{Abi, HasDataLayout, LayoutOf, Size, TagEncoding};
 use rustc_target::abi::{VariantIdx, Variants};
@@ -60,20 +60,17 @@ impl<Tag> From<Scalar<Tag>> for Immediate<Tag> {
     }
 }
 
-impl<Tag> From<Pointer<Tag>> for Immediate<Tag> {
-    #[inline(always)]
-    fn from(val: Pointer<Tag>) -> Self {
-        Immediate::Scalar(Scalar::from(val).into())
-    }
-}
-
 impl<'tcx, Tag> Immediate<Tag> {
+    pub fn from_pointer(p: Pointer<Tag>, cx: &impl HasDataLayout) -> Self {
+        Immediate::Scalar(ScalarMaybeUninit::from_pointer(p, cx))
+    }
+
     pub fn new_slice(val: Scalar<Tag>, len: u64, cx: &impl HasDataLayout) -> Self {
         Immediate::ScalarPair(val.into(), Scalar::from_machine_usize(len, cx).into())
     }
 
-    pub fn new_dyn_trait(val: Scalar<Tag>, vtable: Pointer<Tag>) -> Self {
-        Immediate::ScalarPair(val.into(), vtable.into())
+    pub fn new_dyn_trait(val: Scalar<Tag>, vtable: Pointer<Tag>, cx: &impl HasDataLayout) -> Self {
+        Immediate::ScalarPair(val.into(), ScalarMaybeUninit::from_pointer(vtable, cx))
     }
 
     #[inline]
@@ -115,14 +112,11 @@ impl<Tag: Provenance> std::fmt::Display for ImmTy<'tcx, Tag> {
             cx: FmtPrinter<'a, 'tcx, F>,
             s: ScalarMaybeUninit<Tag>,
             ty: Ty<'tcx>,
-            tcx: TyCtxt<'tcx>,
         ) -> Result<FmtPrinter<'a, 'tcx, F>, std::fmt::Error> {
             match s {
-                ScalarMaybeUninit::Scalar(s) => cx.pretty_print_const_scalar(
-                    Scalar::from_scalar(s.erase_for_fmt(), &tcx),
-                    ty,
-                    true,
-                ),
+                ScalarMaybeUninit::Scalar(s) => {
+                    cx.pretty_print_const_scalar(s.erase_for_fmt().into(), ty, true)
+                }
                 ScalarMaybeUninit::Uninit => cx.typed_value(
                     |mut this| {
                         this.write_str("uninit ")?;
@@ -138,7 +132,7 @@ impl<Tag: Provenance> std::fmt::Display for ImmTy<'tcx, Tag> {
                 Immediate::Scalar(s) => {
                     if let Some(ty) = tcx.lift(self.layout.ty) {
                         let cx = FmtPrinter::new(tcx, f, Namespace::ValueNS);
-                        p(cx, s, ty, tcx)?;
+                        p(cx, s, ty)?;
                         return Ok(());
                     }
                     write!(f, "{}: {}", s.erase_for_fmt(), self.layout.ty)
@@ -255,7 +249,10 @@ impl<'tcx, Tag: Copy> ImmTy<'tcx, Tag> {
     }
 
     #[inline]
-    pub fn to_const_int(self) -> ConstInt {
+    pub fn to_const_int(self) -> ConstInt
+    where
+        Tag: Provenance,
+    {
         assert!(self.layout.ty.is_integral());
         let int = self.to_scalar().expect("to_const_int doesn't work on scalar pairs").assert_int();
         ConstInt::new(int, self.layout.ty.is_signed(), self.layout.ty.is_ptr_sized_integral())
@@ -602,7 +599,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
         // Other cases need layout.
         let tag_scalar = |scalar| -> InterpResult<'tcx, _> {
             Ok(match scalar {
-                Scalar::Ptr(ptr) => Scalar::Ptr(self.global_base_pointer(ptr)?),
+                Scalar::Ptr(ptr, size) => Scalar::Ptr(self.global_base_pointer(ptr)?, size),
                 Scalar::Int(int) => Scalar::Int(int),
             })
         };
@@ -624,7 +621,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                     Size::from_bytes(start), // offset: `start`
                 );
                 Operand::Immediate(Immediate::new_slice(
-                    self.global_base_pointer(ptr)?.into(),
+                    Scalar::from_pointer(self.global_base_pointer(ptr)?, &*self.tcx),
                     u64::try_from(end.checked_sub(start).unwrap()).unwrap(), // len: `end - start`
                     self,
                 ))
@@ -719,7 +716,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                 // discriminant (encoded in niche/tag) and variant index are the same.
                 let variants_start = niche_variants.start().as_u32();
                 let variants_end = niche_variants.end().as_u32();
-                let variant = match tag_val.to_bits_or_ptr(tag_layout.size, self) {
+                let variant = match tag_val.to_bits_or_ptr(tag_layout.size) {
                     Err(ptr) => {
                         // The niche must be just 0 (which an inbounds pointer value never is)
                         let ptr_valid = niche_start == 0

@@ -139,7 +139,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
             sym::caller_location => {
                 let span = self.find_closest_untracked_caller_location();
                 let location = self.alloc_caller_location_for_span(span);
-                self.write_scalar(location.ptr, dest)?;
+                self.write_scalar(Scalar::from_pointer(location.ptr, &*self.tcx), dest)?;
             }
 
             sym::min_align_of_val | sym::size_of_val => {
@@ -337,7 +337,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                 let pointee_ty = substs.type_at(0);
 
                 let offset_ptr = self.ptr_offset_inbounds(ptr, pointee_ty, offset_count)?;
-                self.write_scalar(offset_ptr, dest)?;
+                self.write_scalar(Scalar::from_pointer(offset_ptr, &*self.tcx), dest)?;
             }
             sym::arith_offset => {
                 let ptr = self.read_scalar(&args[0])?.check_init()?;
@@ -362,9 +362,9 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                 //
                 // Control flow is weird because we cannot early-return (to reach the
                 // `go_to_block` at the end).
-                let done = if a.is_bits() && b.is_bits() {
-                    let a = a.to_machine_usize(self)?;
-                    let b = b.to_machine_usize(self)?;
+                let done = if let (Some(a), Some(b)) = (a.try_to_int(), b.try_to_int()) {
+                    let a = a.try_to_machine_usize(*self.tcx).unwrap();
+                    let b = b.try_to_machine_usize(*self.tcx).unwrap();
                     if a == b && a != 0 {
                         self.write_scalar(Scalar::from_machine_isize(0, self), dest)?;
                         true

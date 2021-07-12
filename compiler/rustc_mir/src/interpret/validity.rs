@@ -21,7 +21,7 @@ use std::hash::Hash;
 
 use super::{
     alloc_range, CheckInAllocMsg, GlobalAlloc, InterpCx, InterpResult, MPlaceTy, Machine,
-    MemPlaceMeta, OpTy, Scalar, ScalarMaybeUninit, ValueVisitor,
+    MemPlaceMeta, OpTy, ScalarMaybeUninit, ValueVisitor,
 };
 
 macro_rules! throw_validation_failure {
@@ -324,7 +324,7 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValidityVisitor<'rt, 'mir, '
         let tail = self.ecx.tcx.struct_tail_erasing_lifetimes(pointee.ty, self.ecx.param_env);
         match tail.kind() {
             ty::Dynamic(..) => {
-                let vtable = meta.unwrap_meta();
+                let vtable = self.ecx.scalar_to_ptr(meta.unwrap_meta());
                 // Direct call to `check_ptr_access_align` checks alignment even on CTFE machines.
                 try_validation!(
                     self.ecx.memory.check_ptr_access_align(
@@ -448,17 +448,10 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValidityVisitor<'rt, 'mir, '
         if let Some(ref mut ref_tracking) = self.ref_tracking {
             // Proceed recursively even for ZST, no reason to skip them!
             // `!` is a ZST and we want to validate it.
-            // Normalize before handing `place` to tracking because that will
-            // check for duplicates.
-            let place = if size.bytes() > 0 {
-                self.ecx.force_mplace_ptr(place).expect("we already bounds-checked")
-            } else {
-                place
-            };
             // Skip validation entirely for some external statics
-            if let Scalar::Ptr(ptr) = place.ptr {
+            if let Some(alloc_id) = M::ptr_get_alloc(&self.ecx.memory, place.ptr).0 {
                 // not a ZST
-                let alloc_kind = self.ecx.tcx.get_global_alloc(ptr.alloc_id);
+                let alloc_kind = self.ecx.tcx.get_global_alloc(alloc_id);
                 if let Some(GlobalAlloc::Static(did)) = alloc_kind {
                     assert!(!self.ecx.tcx.is_thread_local_static(did));
                     assert!(self.ecx.tcx.is_static(did));
@@ -601,7 +594,7 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValidityVisitor<'rt, 'mir, '
                 // message below.
                 let value = value.to_scalar_or_uninit();
                 let _fn = try_validation!(
-                    value.check_init().and_then(|ptr| self.ecx.memory.get_fn(ptr)),
+                    value.check_init().and_then(|ptr| self.ecx.memory.get_fn(self.ecx.scalar_to_ptr(ptr))),
                     self.path,
                     err_ub!(DanglingIntPointer(..)) |
                     err_ub!(InvalidFunctionPointer(..)) |
@@ -832,7 +825,7 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValueVisitor<'mir, 'tcx, M>
     ) -> InterpResult<'tcx> {
         match op.layout.ty.kind() {
             ty::Str => {
-                let mplace = op.assert_mem_place(self.ecx); // strings are never immediate
+                let mplace = self.ecx.op_assert_mem_place(op); // strings are never immediate
                 let len = mplace.len(self.ecx)?;
                 try_validation!(
                     self.ecx.memory.read_bytes(mplace.ptr, Size::from_bytes(len)),
@@ -853,7 +846,7 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValueVisitor<'mir, 'tcx, M>
                 // Optimized handling for arrays of integer/float type.
 
                 // Arrays cannot be immediate, slices are never immediate.
-                let mplace = op.assert_mem_place(self.ecx);
+                let mplace = self.ecx.op_assert_mem_place(op);
                 // This is the length of the array/slice.
                 let len = mplace.len(self.ecx)?;
                 // This is the element type size.
@@ -939,9 +932,6 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
 
         // Construct a visitor
         let mut visitor = ValidityVisitor { path, ref_tracking, ctfe_mode, ecx: self };
-
-        // Try to cast to ptr *once* instead of all the time.
-        let op = self.force_op_ptr(&op).unwrap_or(*op);
 
         // Run it.
         match visitor.visit_value(&op) {

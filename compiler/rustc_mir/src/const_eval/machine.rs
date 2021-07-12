@@ -16,8 +16,8 @@ use rustc_target::abi::{Align, Size};
 use rustc_target::spec::abi::Abi;
 
 use crate::interpret::{
-    self, compile_time_machine, AllocId, Allocation, Frame, ImmTy, InterpCx, InterpResult, Memory,
-    OpTy, PlaceTy, Pointer, Scalar, StackPopUnwind,
+    self, compile_time_machine, AllocId, Allocation, DefaultTag, Frame, ImmTy, InterpCx,
+    InterpResult, OpTy, PlaceTy, Scalar, StackPopUnwind,
 };
 
 use super::error::*;
@@ -59,7 +59,7 @@ pub struct CompileTimeInterpreter<'mir, 'tcx> {
     pub steps_remaining: usize,
 
     /// The virtual call stack.
-    pub(crate) stack: Vec<Frame<'mir, 'tcx, (), ()>>,
+    pub(crate) stack: Vec<Frame<'mir, 'tcx, DefaultTag, ()>>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -351,10 +351,6 @@ impl<'mir, 'tcx> interpret::Machine<'mir, 'tcx> for CompileTimeInterpreter<'mir,
 
     fn abort(_ecx: &mut InterpCx<'mir, 'tcx, Self>, msg: String) -> InterpResult<'tcx, !> {
         Err(ConstEvalErrKind::Abort(msg).into())
-    }
-
-    fn ptr_to_int(_mem: &Memory<'mir, 'tcx, Self>, _ptr: Pointer) -> InterpResult<'tcx, u64> {
-        Err(ConstEvalErrKind::PtrToIntCast.into())
     }
 
     fn binary_ptr_op(

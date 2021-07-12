@@ -117,7 +117,7 @@ impl<'tcx> Const<'tcx> {
     #[inline]
     /// Interns the given scalar as a constant.
     pub fn from_scalar(tcx: TyCtxt<'tcx>, val: Scalar, ty: Ty<'tcx>) -> &'tcx Self {
-        Self::from_value(tcx, ConstValue::Scalar(val), ty)
+        Self::from_value(tcx, ConstValue::from_scalar(val, &tcx), ty)
     }
 
     #[inline]

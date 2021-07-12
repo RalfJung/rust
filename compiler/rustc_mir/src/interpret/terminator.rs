@@ -12,8 +12,7 @@ use rustc_target::abi::{self, LayoutOf as _};
 use rustc_target::spec::abi::Abi;
 
 use super::{
-    FnVal, ImmTy, InterpCx, InterpResult, MPlaceTy, Machine, OpTy, PlaceTy, StackPopCleanup,
-    StackPopUnwind,
+    FnVal, ImmTy, InterpCx, InterpResult, Machine, OpTy, PlaceTy, StackPopCleanup, StackPopUnwind,
 };
 
 impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
@@ -72,7 +71,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                 let (fn_val, abi, caller_can_unwind) = match *func.layout.ty.kind() {
                     ty::FnPtr(sig) => {
                         let caller_abi = sig.abi();
-                        let fn_ptr = self.read_scalar(&func)?.check_init()?;
+                        let fn_ptr = self.read_pointer(&func)?;
                         let fn_val = self.memory.get_fn(fn_ptr)?;
                         (
                             fn_val,
@@ -454,11 +453,11 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
                     }
                     None => {
                         // Unsized self.
-                        args[0].assert_mem_place(self)
+                        self.op_assert_mem_place(&args[0])
                     }
                 };
                 // Find and consult vtable
-                let vtable = receiver_place.vtable();
+                let vtable = self.scalar_to_ptr(receiver_place.vtable());
                 let fn_val = self.get_vtable_slot(vtable, u64::try_from(idx).unwrap())?;
 
                 // `*mut receiver_place.layout.ty` is almost the layout that we
@@ -504,7 +503,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
         );
 
         let ty = self.tcx.mk_unit(); // return type is ()
-        let dest = MPlaceTy::dangling(self.layout_of(ty)?, self);
+        let dest = self.dangling_place(self.layout_of(ty)?);
 
         self.eval_fn_call(
             FnVal::Instance(instance),

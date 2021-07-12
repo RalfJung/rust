@@ -1,6 +1,6 @@
 use super::BackendTypes;
 use crate::mir::place::PlaceRef;
-use rustc_middle::mir::interpret::{Allocation, Scalar};
+use rustc_middle::mir::interpret::{AllocId, Allocation, Scalar};
 use rustc_middle::ty::layout::TyAndLayout;
 use rustc_span::Symbol;
 use rustc_target::abi::{self, Size};
@@ -28,7 +28,12 @@ pub trait ConstMethods<'tcx>: BackendTypes {
 
     fn const_data_from_alloc(&self, alloc: &Allocation) -> Self::Value;
 
-    fn scalar_to_backend(&self, cv: Scalar, layout: &abi::Scalar, llty: Self::Type) -> Self::Value;
+    fn scalar_to_backend(
+        &self,
+        cv: Scalar<AllocId>,
+        layout: &abi::Scalar,
+        llty: Self::Type,
+    ) -> Self::Value;
     fn from_const_alloc(
         &self,
         layout: TyAndLayout<'tcx>,

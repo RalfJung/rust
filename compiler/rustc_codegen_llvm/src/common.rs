@@ -11,7 +11,7 @@ use rustc_ast::Mutability;
 use rustc_codegen_ssa::mir::place::PlaceRef;
 use rustc_codegen_ssa::traits::*;
 use rustc_middle::bug;
-use rustc_middle::mir::interpret::{Allocation, GlobalAlloc, Scalar};
+use rustc_middle::mir::interpret::{AllocId, Allocation, GlobalAlloc, Scalar};
 use rustc_middle::ty::{layout::TyAndLayout, ScalarInt};
 use rustc_span::symbol::Symbol;
 use rustc_target::abi::{self, AddressSpace, HasDataLayout, LayoutOf, Pointer, Size};
@@ -227,7 +227,12 @@ impl ConstMethods<'tcx> for CodegenCx<'ll, 'tcx> {
         })
     }
 
-    fn scalar_to_backend(&self, cv: Scalar, layout: &abi::Scalar, llty: &'ll Type) -> &'ll Value {
+    fn scalar_to_backend(
+        &self,
+        cv: Scalar<AllocId>,
+        layout: &abi::Scalar,
+        llty: &'ll Type,
+    ) -> &'ll Value {
         let bitsize = if layout.is_bool() { 1 } else { layout.value.size(self).bits() };
         match cv {
             Scalar::Int(ScalarInt::ZST) => {
@@ -244,7 +249,8 @@ impl ConstMethods<'tcx> for CodegenCx<'ll, 'tcx> {
                 }
             }
             Scalar::Ptr(ptr) => {
-                let (base_addr, base_addr_space) = match self.tcx.global_alloc(ptr.alloc_id) {
+                let (alloc_id, offset) = ptr.into_parts();
+                let (base_addr, base_addr_space) = match self.tcx.global_alloc(alloc_id) {
                     GlobalAlloc::Memory(alloc) => {
                         let init = const_alloc_to_llvm(self, alloc);
                         let value = match alloc.mutability {
@@ -252,7 +258,7 @@ impl ConstMethods<'tcx> for CodegenCx<'ll, 'tcx> {
                             _ => self.static_addr_of(init, alloc.align, None),
                         };
                         if !self.sess().fewer_names() {
-                            llvm::set_value_name(value, format!("{:?}", ptr.alloc_id).as_bytes());
+                            llvm::set_value_name(value, format!("{:?}", alloc_id).as_bytes());
                         }
                         (value, AddressSpace::DATA)
                     }
@@ -269,7 +275,7 @@ impl ConstMethods<'tcx> for CodegenCx<'ll, 'tcx> {
                 let llval = unsafe {
                     llvm::LLVMConstInBoundsGEP(
                         self.const_bitcast(base_addr, self.type_i8p_ext(base_addr_space)),
-                        &self.const_usize(ptr.offset.bytes()),
+                        &self.const_usize(offset.bytes()),
                         1,
                     )
                 };

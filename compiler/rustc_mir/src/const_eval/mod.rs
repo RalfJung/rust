@@ -1,6 +1,6 @@
 // Not in interpret to make sure we do not use private implementation details
 
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use rustc_hir::Mutability;
 use rustc_middle::ty::{self, TyCtxt};
@@ -35,7 +35,7 @@ pub(crate) fn const_caller_location(
     if intern_const_alloc_recursive(&mut ecx, InternKind::Constant, &loc_place).is_err() {
         bug!("intern_const_alloc_recursive should not error in this case")
     }
-    ConstValue::Scalar(loc_place.ptr)
+    ConstValue::Scalar(Scalar::Ptr(loc_place.ptr.try_into().unwrap()))
 }
 
 /// Convert an evaluated constant to a type level constant
@@ -179,9 +179,9 @@ pub(crate) fn deref_const<'tcx>(
     let ecx = mk_eval_cx(tcx, DUMMY_SP, param_env, false);
     let op = ecx.const_to_op(val, None).unwrap();
     let mplace = ecx.deref_operand(&op).unwrap();
-    if let Scalar::Ptr(ptr) = mplace.ptr {
+    if let Some(alloc_id) = mplace.ptr.provenance {
         assert_eq!(
-            tcx.get_global_alloc(ptr.alloc_id).unwrap().unwrap_memory().mutability,
+            tcx.get_global_alloc(alloc_id).unwrap().unwrap_memory().mutability,
             Mutability::Not,
             "deref_const cannot be used with mutable allocations as \
             that could allow pattern matching to observe mutable statics",

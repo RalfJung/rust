@@ -554,7 +554,7 @@ impl<'tcx> TyCtxt<'tcx> {
     /// This function exists to allow const eval to detect the difference between evaluation-
     /// local dangling pointers and allocations in constants/statics.
     #[inline]
-    pub fn get_global_alloc(self, id: AllocId) -> Option<GlobalAlloc<'tcx>> {
+    pub fn try_get_global_alloc(self, id: AllocId) -> Option<GlobalAlloc<'tcx>> {
         self.alloc_map.lock().alloc_map.get(&id).cloned()
     }
 
@@ -565,7 +565,7 @@ impl<'tcx> TyCtxt<'tcx> {
     /// ids), this function is frequently used throughout rustc, but should not be used within
     /// the miri engine.
     pub fn global_alloc(self, id: AllocId) -> GlobalAlloc<'tcx> {
-        match self.get_global_alloc(id) {
+        match self.try_get_global_alloc(id) {
             Some(alloc) => alloc,
             None => bug!("could not find allocation for {id:?}"),
         }

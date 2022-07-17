@@ -1298,7 +1298,8 @@ pub trait PrettyPrinter<'tcx>:
             ty::FnPtr(_) => {
                 // FIXME: We should probably have a helper method to share code with the "Byte strings"
                 // printing above (which also has to handle pointers to all sorts of things).
-                if let Some(GlobalAlloc::Function(instance)) = self.tcx().try_get_global_alloc(alloc_id)
+                if let Some(GlobalAlloc::Function(instance)) =
+                    self.tcx().try_get_global_alloc(alloc_id)
                 {
                     self = self.typed_value(
                         |this| this.print_value_path(instance.def_id(), instance.substs),

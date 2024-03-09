@@ -118,7 +118,7 @@ impl<'tcx> MirPass<'tcx> for AddRetag {
         }
 
         // PART 3
-        // Add retag after assignments where data "enters" this function: the RHS is behind a deref and the LHS is not.
+        // Add retag after assignments where data "enters" this function: the RHS is behind a deref/const and the LHS is not.
         for block_data in basic_blocks {
             // We want to insert statements as we iterate. To this end, we
             // iterate backwards using indices.
@@ -127,10 +127,15 @@ impl<'tcx> MirPass<'tcx> for AddRetag {
                     // Retag after assignments of reference type.
                     StatementKind::Assign(box (ref place, ref rvalue)) if needs_retag(place) => {
                         let add_retag = match rvalue {
-                            // Ptr-creating operations already do their own internal retagging, no
-                            // need to also add a retag statement.
-                            Rvalue::Ref(..) | Rvalue::AddressOf(..) => false,
-                            _ => true,
+                            // The only way a references can come in is via `Use` of a place that involves a `*`,
+                            // or of a const (which conceptually is also "outside" the function).
+                            // All other rvalues either cannot return references (arithmetic, casts)
+                            // or already handle retagging themselves (`Ref`, `AddressOf`).
+                            Rvalue::Use(Operand::Move(place) | Operand::Copy(place)) => {
+                                place.is_indirect()
+                            }
+                            Rvalue::Use(Operand::Constant(..)) => true,
+                            _ => false,
                         };
                         if add_retag {
                             (RetagKind::Default, *place)

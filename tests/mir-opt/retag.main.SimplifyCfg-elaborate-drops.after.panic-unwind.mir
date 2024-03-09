@@ -84,12 +84,10 @@ fn main() -> () {
         StorageLive(_8);
         StorageLive(_9);
         _9 = move _3;
-        Retag(_9);
         _8 = &mut (*_9);
         StorageDead(_9);
         StorageLive(_10);
         _10 = move _8;
-        Retag(_10);
         StorageLive(_11);
         StorageLive(_12);
         _12 = &raw mut (*_10);
@@ -104,7 +102,6 @@ fn main() -> () {
         StorageLive(_13);
         StorageLive(_14);
         _14 = {closure@main::{closure#0}};
-        Retag(_14);
         _13 = move _14 as for<'a> fn(&'a i32) -> &'a i32 (PointerCoercion(ClosureFnPointer(Normal)));
         StorageDead(_14);
         StorageLive(_15);

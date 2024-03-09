@@ -113,15 +113,12 @@ fn array_casts() -> () {
         Retag(_34);
         _18 = &(*_34);
         _13 = (move _14, move _18);
-        Retag(_13);
         StorageDead(_18);
         StorageDead(_14);
         StorageLive(_20);
         _20 = (_13.0: &usize);
-        Retag(_20);
         StorageLive(_21);
         _21 = (_13.1: &usize);
-        Retag(_21);
         StorageLive(_22);
         StorageLive(_23);
         _23 = (*_20);
@@ -168,7 +165,6 @@ fn array_casts() -> () {
         _31 = &(*_32);
         StorageLive(_33);
         _33 = Option::<Arguments<'_>>::None;
-        Retag(_33);
         _27 = core::panicking::assert_failed::<usize, usize>(move _28, move _29, move _31, move _33) -> unwind continue;
     }
 }

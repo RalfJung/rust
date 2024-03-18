@@ -320,7 +320,8 @@ impl<'tcx> Stack {
                 // We are reading from something in the unknown part. That means *all* `Unique` we know about are dead now.
                 0
             };
-            self.disable_uniques_starting_at(first_incompatible_idx, |item| {
+            self.freeze_uniques_starting_at(first_incompatible_idx, |item| {
+                // FIXME these aren't quite right...
                 Stack::item_invalidated(&item, global, dcx, ItemInvalidationCause::Conflict)?;
                 dcx.log_invalidation(item.tag());
                 Ok(())

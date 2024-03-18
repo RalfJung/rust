@@ -65,3 +65,12 @@ fn array_casts() {
     let p = &x as *const usize;
     assert_eq!(unsafe { *p.add(1) }, 1);
 }
+
+// Test for the slice::len special hacks
+// EMIT_MIR retag.slice_len.SimplifyCfg-elaborate-drops.after.mir
+fn slice_len(sl: &[i32], sl_raw: *const [i32], sl_tail: &(i32, [i32]), ar: &[i32; 4]) {
+    let _len = sl.len();
+    let _len = unsafe { (*sl_raw).len() };
+    let _len = sl_tail.1.len();
+    let _len = ar.len();
+}

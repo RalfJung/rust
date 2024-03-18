@@ -119,7 +119,7 @@ impl<'tcx> MirPass<'tcx> for AddRetag {
 
         // PART 3
         // Add retag after assignments.
-        for block_data in basic_blocks {
+        for block_data in basic_blocks.iter_mut() {
             // We want to insert statements as we iterate. To this end, we
             // iterate backwards using indices.
             for i in (0..block_data.statements.len()).rev() {
@@ -150,6 +150,55 @@ impl<'tcx> MirPass<'tcx> for AddRetag {
                         kind: StatementKind::Retag(retag_kind, Box::new(place)),
                     },
                 );
+            }
+        }
+
+        // PART 4: special hack for calling `slice::len`, to avoid bad interactions with Stacked Borrows.
+        // We basically perform lower_slice_len here, except we also remove the original reference
+        // that was created for the function argument.
+        let slice_len_fn = tcx.lang_items().slice_len_fn();
+        for block_data in basic_blocks.iter_mut() {
+            if let Some(Terminator {
+                kind: TerminatorKind::Call { func, args, destination, target, .. },
+                source_info,
+            }) = &block_data.terminator
+            {
+                let func_ty = func.ty(&*local_decls, tcx);
+                if let ty::FnDef(def_id, ..) = *func_ty.kind() {
+                    if Some(def_id) == slice_len_fn && args.len() == 1 {
+                        // Let's see if the last statement of the basic block is the argument to this function.
+                        // This detetcs the pattern
+                        // ```
+                        // _arg = &*orig;
+                        // Call(_arg)
+                        // ```
+                        if let Some(arg) = args[0].node.place().and_then(|p| p.as_local())
+                            && let Some(last_stmt) = block_data.statements.last()
+                            // Last statement must be an assignment where the LHS is the argument local.
+                            && let StatementKind::Assign(box (ref arg_place, ref rvalue)) = last_stmt.kind
+                            && arg_place.as_local() == Some(arg)
+                            // RHS of that assignment must be a borrow.
+                            && let Rvalue::Ref(_, _, orig_place) = *rvalue
+                        {
+                            // We have to remove the old assignment to make sure the retag does
+                            // not happen. Let's make sure it's not something user-defined.
+                            // We then rely on this local being used here and only here...
+                            assert!(!matches!(local_decls[arg].local_info(), LocalInfo::User(..)));
+                            block_data.statements.pop();
+                            // Insert assignment that does what the function call did.
+                            block_data.statements.push(Statement {
+                                kind: StatementKind::Assign(Box::new((
+                                    *destination,
+                                    Rvalue::Len(orig_place),
+                                ))),
+                                source_info: *source_info,
+                            });
+                            // Replace call by jump to next basic block.
+                            block_data.terminator_mut().kind =
+                                TerminatorKind::Goto { target: target.unwrap() };
+                        }
+                    }
+                }
             }
         }
     }

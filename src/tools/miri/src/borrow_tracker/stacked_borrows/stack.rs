@@ -368,8 +368,55 @@ impl<'tcx> Stack {
         }
     }
 
-    /// Find all `Unique` elements in this borrow stack above `granting_idx`, pass a copy of them
-    /// to the `visitor`, then set their `Permission` to `Disabled`.
+    pub fn freeze_uniques_starting_at(
+        &mut self,
+        disable_start: usize,
+        mut visitor: impl FnMut(Item) -> crate::InterpResult<'tcx>,
+    ) -> crate::InterpResult<'tcx> {
+        // Walk up the stack from `disable_start`. Freeze all unique, and once we froze one,
+        // then also freeze everything else (to ensure we maintain the invariant that "above an
+        // SRO are only SRO").
+        let mut one_was_frozen = false;
+        for item in &mut self.borrows[disable_start..] {
+            let perm = item.perm();
+            if perm == Permission::SharedReadOnly {
+                // From here on we'll only see SRO.
+                break;
+            }
+            if perm == Permission::Unique || (one_was_frozen && perm == Permission::SharedReadWrite)
+            {
+                one_was_frozen = true;
+                trace!("access: freezing item {:?}", item);
+                visitor(*item)?;
+                item.set_permission(Permission::SharedReadOnly);
+                // Also update all copies of this item in the cache.
+                #[cfg(feature = "stack-cache")]
+                for it in &mut self.cache.items {
+                    if it.tag() == item.tag() {
+                        it.set_permission(Permission::SharedReadOnly);
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "stack-cache")]
+        if disable_start <= self.unique_range.start {
+            // We froze all Unique items
+            self.unique_range.start = 0;
+            self.unique_range.end = 0;
+        } else {
+            // Truncate the range to only include items up to the index that we started freezing at.
+            self.unique_range.end = self.unique_range.end.min(disable_start);
+        }
+
+        #[cfg(all(feature = "stack-cache", debug_assertions))]
+        self.verify_cache_consistency();
+
+        Ok(())
+    }
+
+    /// Find all `Unique` elements in this borrow stack starting from `disable_start`, pass a copy
+    /// of them to the `visitor`, then set their `Permission` to `Disabled`.
     pub fn disable_uniques_starting_at(
         &mut self,
         disable_start: usize,
@@ -418,10 +465,10 @@ impl<'tcx> Stack {
 
     /// Produces an iterator which iterates over `range` in reverse, and when dropped removes that
     /// range of `Item`s from this `Stack`.
-    pub fn pop_items_after<V: FnMut(Item) -> crate::InterpResult<'tcx>>(
+    pub fn pop_items_after(
         &mut self,
         start: usize,
-        mut visitor: V,
+        mut visitor: impl FnMut(Item) -> crate::InterpResult<'tcx>,
     ) -> crate::InterpResult<'tcx> {
         while self.borrows.len() > start {
             let item = self.borrows.pop().unwrap();

@@ -541,6 +541,12 @@ pub fn std_cargo(builder: &Builder<'_>, target: TargetSelection, stage: u32, car
         }
     }
 
+    // Configure the FreeBSD ABI version that libc will be built for.
+    // Currently, we use freebsd12.
+    if target.contains("freebsd") {
+        cargo.env("RUST_LIBC_UNSTABLE_FREEBSD_VERSION", "12");
+    }
+
     // Paths needed by `library/profiler_builtins/build.rs`.
     if let Some(path) = builder.config.profiler_path(target) {
         cargo.env("LLVM_PROFILER_RT_LIB", path);

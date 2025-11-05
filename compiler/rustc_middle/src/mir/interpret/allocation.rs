@@ -796,7 +796,7 @@ impl<Prov: Provenance, Extra, Bytes: AllocBytes> Allocation<Prov, Extra, Bytes> 
     }
 
     pub fn provenance_merge_bytes(&mut self, cx: &impl HasDataLayout) -> bool {
-        self.provenance.merge_bytes(cx)
+        self.provenance.merge_bytes(&mut self.bytes, &mut self.init_mask, cx)
     }
 
     pub fn provenance_prepare_copy(

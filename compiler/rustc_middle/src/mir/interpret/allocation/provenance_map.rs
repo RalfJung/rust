@@ -11,6 +11,7 @@ use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use tracing::trace;
 
 use super::{AllocRange, CtfeProvenance, Provenance, alloc_range};
+use crate::mir::interpret::allocation::init_mask::InitMask;
 use crate::mir::interpret::{AllocError, AllocResult};
 
 /// A pointer fragment represents one byte of a pointer.
@@ -150,30 +151,62 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
 
     /// Attempt to merge per-byte provenance back into ptr chunks, if the right fragments
     /// sit next to each other. Return `false` if that is not possible due to partial pointers.
-    pub fn merge_bytes(&mut self, cx: &impl HasDataLayout) -> bool {
+    pub fn merge_bytes(
+        &mut self,
+        data_bytes: &mut [u8],
+        init: &mut InitMask,
+        cx: &impl HasDataLayout,
+    ) -> bool {
         let Some(bytes) = self.bytes.as_deref_mut() else {
             return true;
         };
         let ptr_size = cx.data_layout().pointer_size();
-        while let Some((offset, first_frag)) = bytes.iter().next() {
-            let offset = *offset;
-            // Check if this fragment starts a pointer.
-            let range = offset..offset + ptr_size;
-            let frags = bytes.range(range.clone());
-            if frags.len() != ptr_size.bytes_usize() {
-                // We can't merge this one, no point in trying to merge the rest.
+        // Repeatedly try to convert the last remaining fragment byte.
+        while let Some((offset, frag)) = bytes.iter().last() {
+            if Some(frag.prov) == Prov::WILDCARD {
+                // Can't merge this, no way to know what is happening.
+                // (Also not relevant since we only need to merge const-eval results.)
                 return false;
             }
-            for (idx, (_offset, frag)) in frags.iter().enumerate() {
-                if !(frag.prov == first_frag.prov
-                    && frag.bytes == first_frag.bytes
-                    && frag.idx == idx as u8)
+            // Check where this pointer would start and end
+            if *offset < Size::from_bytes(frag.idx) {
+                // This would start at a negative index -- impossible.
+                return false;
+            }
+            let start = *offset - Size::from_bytes(frag.idx);
+            let range = start..start + ptr_size;
+            if range.end >= Size::from_bytes(data_bytes.len()) {
+                // This would go beyond the end of the allocation -- impossible.
+                return false;
+            }
+            // Get the fragments that make up this pointer, if any.
+            // We must find all indices here, or the gaps must be uninitialized.
+            let mut frags = bytes.range(range.clone());
+            for idx in Size::ZERO..ptr_size {
+                if let Some(((_, next), rest)) = frags.split_first()
+                    && u64::from(next.idx) == idx.bytes()
                 {
-                    return false;
+                    // Ensure this fragment has the right provenance and bytes.
+                    if (next.prov, next.bytes) != (frag.prov, frag.bytes) {
+                        return false;
+                    }
+                    // This one is good, go check the rest.
+                    frags = rest;
+                } else {
+                    // No such fragment. Must be uninitialized.
+                    if init.get(start + idx) {
+                        // Initialized, and not with the right provenance... invalid.
+                        return false;
+                    }
                 }
             }
-            // Looks like a pointer! Move it over to the ptr provenance map.
-            self.ptrs.insert(offset, first_frag.prov);
+
+            // We can make this a pointer by filling the uninitialized gaps properly!
+            self.ptrs.insert(start, frag.prov);
+            data_bytes[start.bytes_usize()..][..ptr_size.bytes_usize()]
+                .copy_from_slice(&frag.bytes[..ptr_size.bytes_usize()]);
+            init.set_range(range.clone().into(), true);
+            // Remove the fragments we consumed from per-bytes provenance.
             bytes.remove_range(range);
         }
         // We managed to convert everything into whole pointers.

@@ -111,6 +111,9 @@ impl<'tcx> MirPass<'tcx> for ImpossiblePredicates {
     }
 
     fn is_required(&self) -> bool {
+        // Can never remove UB as (a) it only does something for code that the trait system ensures
+        // is unreachable and (b) the code it introduces is insta-UB, so if anything goes wrong it
+        // would *add* UB, not remove it.
         true
     }
 }

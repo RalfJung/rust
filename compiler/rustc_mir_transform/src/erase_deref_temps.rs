@@ -38,6 +38,7 @@ impl<'tcx> crate::MirPass<'tcx> for EraseDerefTemps {
     }
 
     fn is_required(&self) -> bool {
+        // FIXME: Why is this okay?
         true
     }
 }

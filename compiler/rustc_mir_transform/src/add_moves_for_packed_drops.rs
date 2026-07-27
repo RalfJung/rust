@@ -71,6 +71,7 @@ impl<'tcx> crate::MirPass<'tcx> for AddMovesForPackedDrops {
     }
 
     fn is_required(&self) -> bool {
+        // Impliements part of the MIR semantics, making implicit drop handling explicit.
         true
     }
 }

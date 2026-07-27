@@ -162,6 +162,8 @@ impl<'tcx> crate::MirPass<'tcx> for ElaborateBoxDerefs {
     }
 
     fn is_required(&self) -> bool {
+        // Implements part of MIR semantics so backends and Miri don't have to deal with Box derefs
+        // (as those are complicated when custom allocators get involved).
         true
     }
 }

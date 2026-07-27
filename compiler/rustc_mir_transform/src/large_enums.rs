@@ -165,10 +165,6 @@ impl<'tcx> crate::MirPass<'tcx> for EnumSizeOpt {
 
         patch.apply(body);
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 impl EnumSizeOpt {

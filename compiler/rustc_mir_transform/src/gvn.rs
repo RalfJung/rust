@@ -185,10 +185,6 @@ impl<'tcx> crate::MirPass<'tcx> for GVN {
         StorageRemover { tcx, reused_locals: &state.reused_locals, storage_to_remove }
             .visit_body_preserves_cfg(body);
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 newtype_index! {

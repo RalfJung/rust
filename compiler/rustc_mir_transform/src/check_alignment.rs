@@ -33,6 +33,8 @@ impl<'tcx> crate::MirPass<'tcx> for CheckAlignment {
     }
 
     fn is_required(&self) -> bool {
+        // Pass only runs when UB checks are enabled. In that case this is part of the semantics,
+        // not just an optimizations. Miri specifically disables the pass again.
         true
     }
 }

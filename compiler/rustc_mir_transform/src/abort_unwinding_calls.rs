@@ -139,6 +139,8 @@ impl<'tcx> crate::MirPass<'tcx> for AbortUnwindingCalls {
     }
 
     fn is_required(&self) -> bool {
+        // Implements part of the MIR semantics, turning what are effectively implicit aborts
+        // into explicit ones.
         true
     }
 }

@@ -89,6 +89,7 @@ impl<'tcx> crate::MirPass<'tcx> for ElaborateDrops {
     }
 
     fn is_required(&self) -> bool {
+        // Implements MIR drop semantics.
         true
     }
 }

@@ -38,6 +38,8 @@ impl<'tcx> crate::MirPass<'tcx> for CtfeLimit {
     }
 
     fn is_required(&self) -> bool {
+        // This is not an optimization, it is part of our CTFE diagnostics. Only runs on const MIR
+        // so anyway not relevant for Miri.
         true
     }
 }

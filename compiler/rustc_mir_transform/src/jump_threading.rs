@@ -148,10 +148,6 @@ impl<'tcx> crate::MirPass<'tcx> for JumpThreading {
             opportunities.apply();
         }
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 struct TOFinder<'a, 'tcx> {

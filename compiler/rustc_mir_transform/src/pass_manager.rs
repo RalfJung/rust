@@ -111,7 +111,12 @@ pub(super) trait MirPass<'tcx> {
     /// Returns `true` if this pass must be run (i.e. it is required for soundness).
     /// For passes which are strictly optimizations, this should return `false`.
     /// If this is `false`, `#[optimize(none)]` will disable the pass.
-    fn is_required(&self) -> bool;
+    /// If this is `true`, the pass will run even in Miri. Such passes must never remove UB!
+    /// `true` should always come with a comment justifying why this pass must always be run.
+    /// If this returns `true`, `is_enabled` must also be `true`.
+    fn is_required(&self) -> bool {
+        false
+    }
 }
 
 /// Just like `MirPass`, except it cannot mutate `Body`, and MIR dumping is

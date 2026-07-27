@@ -152,8 +152,4 @@ impl<'tcx> crate::MirPass<'tcx> for DeadStoreElimination {
             }
         }
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }

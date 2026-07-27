@@ -67,10 +67,6 @@ impl<'tcx> crate::MirPass<'tcx> for Inline {
             simplify_cfg(tcx, body);
         }
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 pub struct ForceInline;
@@ -91,6 +87,7 @@ impl<'tcx> crate::MirPass<'tcx> for ForceInline {
     }
 
     fn is_required(&self) -> bool {
+        // Fored inlining is part of the MIR semantics.
         true
     }
 

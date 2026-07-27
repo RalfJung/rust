@@ -66,6 +66,7 @@ impl<'tcx> crate::MirPass<'tcx> for Subtyper {
     }
 
     fn is_required(&self) -> bool {
+        // FIXME: Why is this okay? (The pass is also lacking a proper module-level description.)
         true
     }
 }

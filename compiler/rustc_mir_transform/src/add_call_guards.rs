@@ -128,6 +128,7 @@ impl<'tcx> crate::MirPass<'tcx> for AddCallGuards {
     }
 
     fn is_required(&self) -> bool {
+        // Only reorganizes the CFG, can never introduce UB.
         true
     }
 }

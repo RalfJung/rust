@@ -86,6 +86,7 @@ impl<'tcx> crate::MirPass<'tcx> for CleanupPostBorrowck {
     }
 
     fn is_required(&self) -> bool {
+        // Removes administrative MIR instructions that later passes should never see.
         true
     }
 }

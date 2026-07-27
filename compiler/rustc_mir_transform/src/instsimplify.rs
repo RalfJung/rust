@@ -62,10 +62,6 @@ impl<'tcx> crate::MirPass<'tcx> for InstSimplify {
             simplify_duplicate_switch_targets(terminator);
         }
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 struct InstSimplifyContext<'a, 'tcx> {

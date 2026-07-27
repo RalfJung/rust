@@ -232,10 +232,6 @@ impl<'tcx> crate::MirPass<'tcx> for DestinationPropagation {
 
         apply_merges(body, tcx, relevant, merged_locals);
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 //////////////////////////////////////////////////////////

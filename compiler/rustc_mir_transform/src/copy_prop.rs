@@ -95,10 +95,6 @@ impl<'tcx> crate::MirPass<'tcx> for CopyProp {
 
         crate::simplify::remove_unused_definitions(body);
     }
-
-    fn is_required(&self) -> bool {
-        false
-    }
 }
 
 /// Utility to help performing substitution: for all key-value pairs in `copy_classes`,

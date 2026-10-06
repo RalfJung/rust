@@ -1,3 +1,5 @@
+#![cfg_attr(miri, allow(unused))] // not all parts of this are used in Miri builds
+
 use crate::mem::MaybeUninit;
 use crate::pin::{Pin, UnsafePinned};
 
